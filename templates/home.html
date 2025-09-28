@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Secure Demo</title>
+
+    <style> 
+        input {
+            position: absolute;
+            width: 500px;
+            border: 0;
+            outline: none;
+            
+            font-family: Arial, Helvetica, sans-serif;
+            letter-spacing: -0.075px;
+            font-size: 25px;
+
+            background-color: transparent;
+
+            margin-top: 11.5px;
+            margin-left: 10.5px;
+        }
+
+        p {
+            position: absolute;
+            font-family: Arial, Helvetica, sans-serif;
+            letter-spacing: -0.075px;
+            font-size: 25px;
+            margin-top: 12.5px;
+        }
+
+        #box {
+            width: 500px;
+            height: 200px;
+
+            border: solid brown;
+            border-width: 1px;
+            
+            background-image: url("{{ image_path }}");
+            background-size: 100% auto;
+            background-repeat: no-repeat;
+            background-position-y: calc(-29.4px * 0);
+        }
+    </style>
+    
+    <script src="static/js/secure.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+
+    <script>
+        var socket = io();
+        socket.emit("session", window.session);
+
+        socket.on("detail", function(data) {
+            document.getElementById("detail").textContent = data;
+        });
+
+        window.data_http = {{ data_http|tojson }};
+        window.index_word = 0;
+
+        function dtoh(dec) { return dec.toString(16).toUpperCase(); }
+        function htod(hex) { return parseInt(hex, 16); }
+
+        async function sha256(wordparts) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(wordparts);
+            const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+            return hashHex;
+        }
+
+        function regen() {
+            socket.emit("session", window.session);
+            window.index_word = 0;
+            var xmlHttp = new XMLHttpRequest();
+            xmlHttp.open( "GET", "/regen", false );
+            xmlHttp.onload  = function() {
+                var data = JSON.parse(xmlHttp.response);
+                document.getElementById("box").style.backgroundImage = `url("${data["image"]}")`;
+                window.data_http = data["data"];
+
+                document.getElementById("label").remove()
+                let d = document.createElement("div");
+                d.id = "label";
+                d.style.position = "absolute";
+                document.getElementById("box").append(d);
+                document.getElementById("word").value = "";
+                document.getElementById("word").style.color = "black";
+
+                document.getElementById("word").style.marginLeft = `calc(calc(${window.data_http[window.index_word]["x"]}*500px) - 2px)`;
+                document.getElementById("box").style.backgroundPositionY = `calc(-29.4px * ${window.data_http[window.index_word]["line"]})`;
+            };
+            xmlHttp.send( null );
+        }
+
+        async function check(event) {
+            const value = event.target.value;
+            socket.send(value + "|" + Date.now().toString());
+
+            if (event.data == " ") {
+
+                if (window.data_http[window.index_word]["line"] == window.data_http[window.index_word+1]["line"]) {
+                    let p = document.createElement("p");
+                    p.style.color = event.target.style.color;
+                    p.style.marginLeft = `calc(${window.data_http[window.index_word]["x"]}*500px)`;
+                    p.textContent = value;
+                    document.getElementById("label").appendChild(p);
+                } else {
+                    document.getElementById("label").remove();
+                    let d = document.createElement("div");
+                    d.id = "label";
+                    d.style.position = "absolute";
+                    document.getElementById("box").append(d);
+                }
+
+                window.index_word += 1;
+                event.target.style.marginLeft = `calc(calc(${window.data_http[window.index_word]["x"]}*500px) - 2px)`;
+                document.getElementById("box").style.backgroundPositionY = `calc(-29.4px * ${window.data_http[window.index_word]["line"]})`;
+                document.getElementById("word").value = "";
+                document.getElementById("word").style.color = "black";
+                return;
+            }
+ 
+            const hash = await sha256(value);
+            const serverHash = window.data_http[window.index_word]["word_part_hash"][value.length - 1];
+            if (hash !== serverHash) {
+                event.target.style.color = "red";
+            } else {
+                event.target.style.color = "black";
+            }
+        }
+    </script>
+</head>
+<body> 
+    <div id="box">
+        <input id="word" oninput="check(event)"></input>
+        <div id="label" style="position: absolute;"></div>
+    </div>
+
+    <p id="detail" style="letter-spacing: unset;font-size: 20px;">... mots/min, ... mots tapés, ... précision</p>
+
+    <button onclick="regen()" style="margin-top: 10px; margin-left: 420px;">Regénérer</button>
+</body>
+</html>

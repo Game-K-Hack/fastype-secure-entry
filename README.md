@@ -33,3 +33,11 @@ This project implements two main levels of security:
 ### Next version
 
 In a future version, I plan to add a unique code sent alongside each letter to prevent tampering.
+
+## Demo
+
+`pip install -r requirements.txt`
+
+`python server.py`
+
+![screenshot](screenshot.png)

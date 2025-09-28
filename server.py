@@ -89,4 +89,5 @@ def handle_message(data:str):
     emit("detail", f'{details[id]["mots/min"]} mots/min, {details[id]["mots"]} mots tapés, {details[request.sid]["précision"]}% précision')
 
 if __name__ == '__main__':
+    print("[\033[94mINFO\033[0m] Host: \033[01m127.0.0.1\033[0m, Port: \033[01m5000\033[0m, URL: \033[01mhttp://127.0.0.1:5000/\033[0m")
     socketio.run(app, debug=False)
